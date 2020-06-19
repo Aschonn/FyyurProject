@@ -76,10 +76,14 @@ def venues():
   data = []
   #iterate through all venues
   for venue in venues:
+    
+    #open slot
     venue_data = []
+    
+    #get the state and city from venue
     area_venues = Venue.query.filter_by(state=venue.state).filter_by(city=venue.city).all()
     
-    #filter out shows with same id
+    #get venue id from shows 
     shows = Show.query.filter_by(venue_id=venue.id).all()
     
     #get current time
@@ -111,7 +115,7 @@ def venues():
   
   #                   Visuals:
   
-  # city  The dependencies we need to install with "pip3 install -r requirements.txt"
+  # city  
   # state
   # Venue
   #     id
@@ -156,27 +160,26 @@ def show_venue(venue_id):
   venue = Venue.query.get(venue_id)
 
   #filter out the shows that have same id and havent happened
-  #filter out the shows that have same id and havent happened
   matching = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id)
 
-
-  upcoming_shows_query = matching.filter(Show.start_time>datetime.now()).all()
-  past_shows_query = matching.filter(Show.start_time<datetime.now()).all()
+  #get upcoming and past show list
+  upcoming_shows_maybe = matching.filter(Show.start_time>datetime.now()).all()
+  past_shows_maybe = matching.filter(Show.start_time<datetime.now()).all()
 
 
   upcoming_shows = []
   past_shows = []
 
-
-  for show in past_shows_query:
+  #iterate through
+  for show in past_shows_maybe:
     past_shows.append({
       "artist_id": show.artist_id,
       "artist_name": show.artist.name,
       "artist_image_link": show.artist.image_link,
       "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
     })
-
-  for show in upcoming_shows_query:
+  #iterate through
+  for show in upcoming_shows_maybe:
     upcoming_shows.append({
       "artist_id": show.artist_id,
       "artist_name": show.artist.name,
@@ -184,7 +187,7 @@ def show_venue(venue_id):
       "start_time": show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
     })
 
-  data ={
+  data = {
     "id": venue.id,
     "name": venue.name,
     "genres": venue.genres,
@@ -269,6 +272,7 @@ def create_venue_submission():
 def delete_venue(venue_id):
   
   try:
+    #get venue ID then session delete
     venue = Venue.query.get(venue_id)
     db.session.delete(venue)
     db.session.commit()
@@ -331,23 +335,31 @@ def show_artist(artist_id):
   get_artist_maybe = db.session.query(Artist).get(artist_id)
 
   if get_artist_maybe:
+
+    #join models and get matching id
+    matching = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id)
+    
     #get past shows
-    past_shows_query = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id).filter(Show.start_time>datetime.now()).all()
+    past_shows_maybe = matching.filter(Show.start_time>datetime.now()).all()
+    
+    #get upcoming shows
+    upcoming_shows_maybe = matching.filter(Show.start_time>datetime.now()).all()
+    
+    
     #open slot
     past_shows = []
+    upcoming_shows = []
 
-    for show in past_shows_query:
+    for show in past_shows_maybe:
       past_shows.append({
         "venue_id": show.venue_id,
         "venue_name": show.venue.name,
         "artist_image_link": show.venue.image_link,
         "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
       })
-  #get upcoming shows
-    upcoming_shows_query = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id).filter(Show.start_time>datetime.now()).all()
-    upcoming_shows = []
+  
 
-    for show in upcoming_shows_query:
+    for show in upcoming_shows_maybe:
       upcoming_shows.append({
         "venue_id": show.venue_id,
         "venue_name": show.venue.name,
@@ -384,10 +396,10 @@ def show_artist(artist_id):
 
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
-  
+  #get form
   form = ArtistForm()
   artist = Artist.query.get(artist_id)
-
+  #if true update values
   if artist: 
     form.name.data = artist.name
     form.city.data = artist.city
@@ -420,7 +432,7 @@ def edit_artist_submission(artist_id):
     artist.image_link = request.form['image_link']
     artist.facebook_link = request.form['facebook_link']
     artist.website = request.form['website']
-    artist.seeking_venue = True if 'seeking_venue' in request.form else False 
+    artist.seeking_venue = ['seeking_venue']
     artist.seeking_description = request.form['seeking_description']
 
     db.session.commit()
@@ -463,7 +475,7 @@ def edit_venue(venue_id):
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-    
+  #get specific venue
   venue = Venue.query.get(venue_id)
 
   try: 
@@ -481,7 +493,7 @@ def edit_venue_submission(venue_id):
     venue.seeking_description = request.form['seeking_description']
     #commit changes
     db.session.commit()
-    flash('Congrats the venue ' + request.form['name'] + ' was successfully Updated!')
+    flash('Congrats the venue update was a success!')
   except: 
     db.session.rollback()
     flash(f'An error occurred. Venue could not be changed.', sys.exc_info())
@@ -498,6 +510,7 @@ def edit_venue_submission(venue_id):
 
 @app.route('/artists/create', methods=['GET'])
 def create_artist_form():
+  
   form = ArtistForm()
   return render_template('forms/new_artist.html', form=form)
 
@@ -514,16 +527,29 @@ def create_artist_submission():
     facebook_link = request.form['facebook_link']
     image_link = request.form['image_link']
     website = request.form['website']
-    seeking_venue = True if 'seeking_venue' in request.form else False
+    artist.seeking_venue = ['seeking_venue']
     seeking_description = request.form['seeking_description']
+    
     #create new artist
-    artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres, facebook_link=facebook_link, image_link=image_link, website=website, seeking_venue=seeking_venue, seeking_description=seeking_description)
+    artist = Artist(
+      name=name, 
+      city=city, 
+      state=state, 
+      phone=phone, 
+      genres=genres, 
+      facebook_link=facebook_link, 
+      image_link=image_link, website=website, 
+      seeking_venue=seeking_venue, 
+      seeking_description=seeking_description
+      )
+
+
     db.session.add(artist)
     db.session.commit()
-    flash('Artist ' + request.form['name'] + ' was successfully listed!')
+    flash('Artist was listing was a successfully!')
   except: 
     db.session.rollback()
-    flash('An error occurred. Artist ' + request.form['name']+ ' could not be listed.', sys.exc_info())
+    flash('An error occurred. Artist ' + request.form['name']+ ' could not be listed.')
   finally: 
     db.session.close()
     
@@ -576,11 +602,11 @@ def create_show_submission():
 
   try: 
     #grab user input
-    artist_id = request.form['artist_id']
-    venue_id = request.form['venue_id']
+    artist = request.form['artist_id']
+    venue = request.form['venue_id']
     start_time = request.form['start_time']
     #create new show
-    show = Show(artist_id=artist_id, venue_id=venue_id, start_time=start_time)
+    show = Show(artist_id=artist, venue_id=venue, start_time=start_time)
     db.session.add(show)
     db.session.commit()
     flash('Show was successfully listed')
